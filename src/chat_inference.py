@@ -3,6 +3,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 import torch
 
 
+# load model with quantized weights and LORA weights
 peft_model_id = "/content/drive/MyDrive/Lora_outputs/checkpoint-2000"
 config = PeftConfig.from_pretrained(peft_model_id)
 bnb_config = BitsAndBytesConfig(
@@ -18,13 +19,16 @@ model = AutoModelForCausalLM.from_pretrained(
 model = PeftModel.from_pretrained(model, peft_model_id)
 tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
 
+# Map to gpu
 device = "cuda:0"
 model = model.to(device)
 model.eval()
 
+# sample prediction
 text = "Deepak: Hello\nPriya:"
 inputs = tokenizer(text, return_tensors="pt").to(device)
 
+# Prediction using sampling method, can also do beam search heres
 outputs = model.generate(
     **inputs,
     max_new_tokens=40,

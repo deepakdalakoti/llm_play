@@ -6,8 +6,10 @@ from datasets import Dataset, load_dataset
 import transformers
 import functools
 
+# Base model
 model_id = "databricks/dolly-v2-3b"
 
+# Load model with quantized weights, lower memory footprint
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_use_double_quant=True,
@@ -23,7 +25,7 @@ model = AutoModelForCausalLM.from_pretrained(
 model.gradient_checkpointing_enable()
 model = prepare_model_for_kbit_training(model)
 
-
+# LORA training, only train new weights, freeze default model weights
 config = LoraConfig(
     r=8,
     lora_alpha=32,
@@ -35,11 +37,15 @@ config = LoraConfig(
 
 model = get_peft_model(model, config)
 
+# Load data
 data = load_dataset("text", data_files="/content/drive/MyDrive/chat_history.txt")
+# Add eos token to each chat message
 data = data.map(functools.partial(add_eos_text, tokenizer=tokenizer), batched=True)
+# tokenize
 data = data.map(
     lambda samples: tokenizer(samples["text"]), batched=True, remove_columns=["text"]
 )
+# group text to large chunks
 lm_datasets = data.map(
     group_texts,
     batched=True,
@@ -50,6 +56,7 @@ lm_datasets = data.map(
 # needed for gpt-neo-x tokenizer
 tokenizer.pad_token = tokenizer.eos_token
 
+# Train model
 trainer = transformers.Trainer(
     model=model,
     train_dataset=lm_datasets["train"],
